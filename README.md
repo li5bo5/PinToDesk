@@ -103,10 +103,6 @@ dotnet publish -c Release -r win-x64 --self-contained false ^
 
 ## 📋 开发日志
 =======
-# PinToDesk - Windows桌面待办事项工具
->>>>>>> 2ac86fcd9c97ea266d98f3e481e6feccf0917686
-
-一个极致轻量级的Windows 11桌面待办事项小工具，可以固定在桌面上，常驻系统后台，采用简洁的无边框半透明设计。
 
 ## 分区
 
@@ -164,9 +160,6 @@ dotnet publish -c Release -r win-x64 --self-contained false ^
      - 固定/取消固定
      - 开机启动/取消开机启动：切换程序是否随系统启动
      - 退出：完全退出程序
-
-<<<<<<< HEAD
-
 
 ### beta1.0
 - 窗口保持黄金比例（1:1.3），无边框设计
