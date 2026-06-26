@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 ﻿# PinToDesk - Windows桌面待办事项工具
 
 一个极致轻量的 Windows 桌面待办事项工具。
@@ -204,4 +204,3 @@ dotnet publish -c Release -r win-x64 --self-contained false ^
 - 键盘功能在双击编辑事项之后，会在当前条目上出现一个虚线框。这是多余的，需要移除。检查其他的操作有没有相同逻辑。
 - 关闭按钮和最小化按钮功能重复，只保留关闭按钮，关闭后停留在系统托盘就够了
 =======
->>>>>>> 2ac86fcd9c97ea266d98f3e481e6feccf0917686
