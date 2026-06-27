@@ -166,14 +166,6 @@ namespace PinToDesk
         }
 
         // ══════════════════════════════════════════════
-        // 监听尺寸变化（已取消黄金比例联动）
-        // ══════════════════════════════════════════════
-        protected override void OnRenderSizeChanged(SizeChangedInfo info)
-        {
-            base.OnRenderSizeChanged(info);
-        }
-
-        // ══════════════════════════════════════════════
         // TitleBar 区域悬停：控制 TitleBar 按钮显示
         // ══════════════════════════════════════════════
         private void TitleBar_MouseEnter(object sender, WinMouse e) => SetTitleButtonsOpacity(1);

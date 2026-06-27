@@ -85,27 +85,47 @@ namespace PinToDesk.Helpers
             // 打开菜单时实时刷新「显示/隐藏」可见性
             menu.Opening += (s, e) => SyncVisibilityMenuItems();
 
-            // 从嵌入资源加载 PTD.ico 高清图标
+            // 从嵌入资源加载 PTD.ico 多分辨率图标，并上提一个尺寸等级加载以显示更大的图标
             var asm        = System.Reflection.Assembly.GetExecutingAssembly();
             var iconStream = asm.GetManifestResourceStream("PinToDesk.PTD.ico");
-            var trayIcon   = iconStream != null ? new Icon(iconStream) : SystemIcons.Application;
+            int smallWidth  = (int)System.Windows.SystemParameters.SmallIconWidth;
+            int smallHeight = (int)System.Windows.SystemParameters.SmallIconHeight;
+            int targetWidth  = smallWidth <= 16 ? 32 : (smallWidth <= 24 ? 32 : 48);
+            int targetHeight = smallHeight <= 16 ? 32 : (smallHeight <= 24 ? 32 : 48);
+            var trayIcon   = iconStream != null ? new Icon(iconStream, new System.Drawing.Size(targetWidth, targetHeight)) : SystemIcons.Application;
+            var version    = typeof(TrayHelper).Assembly.GetName().Version?.ToString(3) ?? "1.0.3";
 
             _icon = new NotifyIcon
             {
                 Icon             = trayIcon,
-                Text             = "TodoList 待办事项",
+                Text             = $"PTD {version}",
                 Visible          = true,
                 ContextMenuStrip = menu
             };
 
-            // 双击托盘图标：切换显示/隐藏
-            _icon.DoubleClick += (s, e) =>
+            // 鼠标左键单击：显示并激活窗口
+            _icon.MouseClick += (s, e) =>
             {
-                _window.Dispatcher.Invoke(() =>
+                if (e.Button == System.Windows.Forms.MouseButtons.Left)
                 {
-                    if (_window.IsVisible) _window.Hide();
-                    else { _window.Show(); _window.Activate(); }
-                });
+                    _window.Dispatcher.Invoke(() =>
+                    {
+                        _window.Show();
+                        _window.Activate();
+                    });
+                }
+            };
+
+            // 鼠标左键双击：隐藏窗口
+            _icon.MouseDoubleClick += (s, e) =>
+            {
+                if (e.Button == System.Windows.Forms.MouseButtons.Left)
+                {
+                    _window.Dispatcher.Invoke(() =>
+                    {
+                        _window.Hide();
+                    });
+                }
             };
         }
 

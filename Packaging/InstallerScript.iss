@@ -3,7 +3,7 @@
 
 [Setup]
 AppName=PinToDesk
-AppVersion=1.0.2
+AppVersion=1.0.3
 DefaultDirName={pf}\PinToDesk
 DefaultGroupName=PinToDesk
 OutputBaseFilename=PinToDesk_Installer
