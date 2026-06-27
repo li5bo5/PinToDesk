@@ -59,8 +59,8 @@ https://github.com/user-attachments/assets/6403c61e-899e-4287-91b0-b3e3110954c9
 
 | 版本 | 文件大小 | 运行依赖 |
 |------|---------|---------|
-| **SelfContained**（自包含版） | 169.5 MB | 无，下载即用 |
-| **FrameworkDependent**（精简版） | 0.18 MB | 需预装 [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) |
+| **SelfContained**（自包含版） | 170.9 MB | 无，下载即用 |
+| **FrameworkDependent**（精简版） | 1.24 MB | 需预装 [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) |
 
 ---
 
@@ -163,3 +163,8 @@ dotnet publish PinToDesk.csproj -c Release -r win-x64 --self-contained false ^
 
 ### v1.0.2
 - 优化项目结构：重构目录布局，将源码文件移动至根目录，并移除多余的构建输出文件夹，自包含版本现已实现完美的单文件打包发布。
+
+### v1.0.3
+- 软件与托盘图标升级：将全新设计的含有多分辨率（包括 256px 等高分尺寸）图标统一用作系统托盘图标以及编译生成的 exe 软件图标。
+- 托盘悬停提示：鼠标悬停在系统托盘图标上时，显示“PTD + 版本号”。
+- 托盘交互优化：鼠标左键单击托盘图标时显示并激活窗口（无论是否置顶、穿透或隐藏），左键双击时隐藏窗口。
