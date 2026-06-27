@@ -114,6 +114,11 @@ dotnet publish PinToDesk.csproj -c Release -r win-x64 --self-contained false ^
 
 ---
 
+## 友情链接
+- [LINUX DO 社区](https://linux.do/)
+
+---
+
 ## 📋 开发日志
 
 
