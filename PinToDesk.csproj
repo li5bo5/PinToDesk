@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>PinToDesk</RootNamespace>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationIcon>PTD.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="PTD.ico"/>
+  </ItemGroup>
+
+</Project>

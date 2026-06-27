@@ -1,0 +1,227 @@
+<Application x:Class="PinToDesk.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Application.Resources>
+
+        <!-- ══════════════════════════════════════════════
+             全局圆角半径常量
+        ══════════════════════════════════════════════ -->
+        <CornerRadius x:Key="Radius6">6</CornerRadius>
+        <CornerRadius x:Key="Radius4">4</CornerRadius>
+        <CornerRadius x:Key="Radius3">3</CornerRadius>
+
+        <!-- ══════════════════════════════════════════════
+             标题栏按钮（置顶/最小化/关闭）
+        ══════════════════════════════════════════════ -->
+        <Style x:Key="TitleBarBtn" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="#555"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Width" Value="28"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Opacity" Value="0"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="{StaticResource Radius4}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#22000000"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#44000000"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ══════════════════════════════════════════════
+             操作按钮（编辑/删除）— 默认隐藏，列表行 hover 时显示
+        ══════════════════════════════════════════════ -->
+        <Style x:Key="ActionBtn" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="#555"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Width" Value="22"/>
+            <Setter Property="Height" Value="22"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="{StaticResource Radius4}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#22000000"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ══════════════════════════════════════════════
+             内联输入框（双击添加）
+        ══════════════════════════════════════════════ -->
+        <Style x:Key="InlineTextBox" TargetType="TextBox">
+            <Setter Property="Background" Value="#CCFFFFFF"/>
+            <Setter Property="BorderBrush" Value="#44000000"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#222"/>
+            <Setter Property="CaretBrush" Value="#555"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{StaticResource Radius6}">
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ══════════════════════════════════════════════
+             细滚动条样式（4px宽，圆角滑块，自动隐藏）
+        ══════════════════════════════════════════════ -->
+        <Style x:Key="NarrowScrollBarThumb" TargetType="Thumb">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border Background="#66000000"
+                                CornerRadius="{StaticResource Radius3}"
+                                Margin="1"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="NarrowScrollBar" TargetType="ScrollBar">
+            <Setter Property="Width" Value="7"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Grid Background="{TemplateBinding Background}">
+                            <Track x:Name="PART_Track" IsDirectionReversed="True">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="ScrollBar.LineUpCommand"
+                                                  Opacity="0" Focusable="False"/>
+                                </Track.DecreaseRepeatButton>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="ScrollBar.LineDownCommand"
+                                                  Opacity="0" Focusable="False"/>
+                                </Track.IncreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb Style="{StaticResource NarrowScrollBarThumb}"/>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="NarrowScrollViewer" TargetType="ScrollViewer">
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollViewer">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- 正确命名 PART_ScrollContentPresenter，修复键盘/滚轮不生效问题 -->
+                            <ScrollContentPresenter x:Name="PART_ScrollContentPresenter"
+                                                    Grid.Column="0"
+                                                    CanContentScroll="{TemplateBinding CanContentScroll}"
+                                                    ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                    Margin="{TemplateBinding Padding}"/>
+
+                            <!-- 默认 Opacity=0（自动隐藏），悬停/滚动时动画显示 -->
+                            <ScrollBar x:Name="PART_VerticalScrollBar"
+                                       Grid.Column="1"
+                                       Style="{StaticResource NarrowScrollBar}"
+                                       Orientation="Vertical"
+                                       Value="{TemplateBinding VerticalOffset}"
+                                       Maximum="{TemplateBinding ScrollableHeight}"
+                                       ViewportSize="{TemplateBinding ViewportHeight}"
+                                       Opacity="0"
+                                       Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"/>
+                        </Grid>
+
+                        <ControlTemplate.Triggers>
+                            <!-- 鼠标进入列表区域 → 滚动条淡入 -->
+                            <EventTrigger RoutedEvent="MouseEnter">
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation
+                                            Storyboard.TargetName="PART_VerticalScrollBar"
+                                            Storyboard.TargetProperty="Opacity"
+                                            To="1" Duration="0:0:0.15"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+
+                            <!-- 鼠标离开列表区域 → 延迟0.8s后淡出 -->
+                            <EventTrigger RoutedEvent="MouseLeave">
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation
+                                            Storyboard.TargetName="PART_VerticalScrollBar"
+                                            Storyboard.TargetProperty="Opacity"
+                                            To="0" BeginTime="0:0:0.8" Duration="0:0:0.3"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+
+                            <!-- 滚动时（滚轮操作）→ 显示滚动条，1.5s后淡出 -->
+                            <EventTrigger RoutedEvent="ScrollViewer.ScrollChanged">
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation
+                                            Storyboard.TargetName="PART_VerticalScrollBar"
+                                            Storyboard.TargetProperty="Opacity"
+                                            To="1" Duration="0:0:0.1"/>
+                                        <DoubleAnimation
+                                            Storyboard.TargetName="PART_VerticalScrollBar"
+                                            Storyboard.TargetProperty="Opacity"
+                                            To="0" BeginTime="0:0:1.5" Duration="0:0:0.4"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+    </Application.Resources>
+</Application>
