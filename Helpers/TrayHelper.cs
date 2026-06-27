@@ -12,18 +12,24 @@ namespace PinToDesk.Helpers
         private readonly System.Windows.Application _app;
         private readonly Action      _togglePin;
         private readonly Func<bool>  _getIsPinned;
+        private readonly Action      _togglePassThrough;
+        private readonly Func<bool>  _getIsPassThrough;
 
-        private readonly ToolStripMenuItem _itemShow;  // 「显示」— 窗口隐藏时可见
-        private readonly ToolStripMenuItem _itemHide;  // 「隐藏」— 窗口显示时可见
-        private readonly ToolStripMenuItem _itemPin;   // 「置顶/取消置顶」
+        private readonly ToolStripMenuItem _itemShow;        // 「显示」— 窗口隐藏时可见
+        private readonly ToolStripMenuItem _itemHide;        // 「隐藏」— 窗口显示时可见
+        private readonly ToolStripMenuItem _itemPin;         // 「置顶/取消置顶」
+        private readonly ToolStripMenuItem _itemPassThrough; // 「鼠标穿透/关闭穿透」
 
         public TrayHelper(Window window, System.Windows.Application app,
-                          Action togglePin, Func<bool> getIsPinned)
+                          Action togglePin,          Func<bool> getIsPinned,
+                          Action togglePassThrough,  Func<bool> getIsPassThrough)
         {
-            _window      = window;
-            _app         = app;
-            _togglePin   = togglePin;
-            _getIsPinned = getIsPinned;
+            _window             = window;
+            _app                = app;
+            _togglePin          = togglePin;
+            _getIsPinned        = getIsPinned;
+            _togglePassThrough  = togglePassThrough;
+            _getIsPassThrough   = getIsPassThrough;
 
             // ── 菜单项定义 ──────────────────────────────
             _itemShow = new ToolStripMenuItem("显示");
@@ -50,6 +56,13 @@ namespace PinToDesk.Helpers
                 SyncPinMenuItem();
             };
 
+            _itemPassThrough = new ToolStripMenuItem("鼠标穿透");
+            _itemPassThrough.Click += (s, e) =>
+            {
+                _togglePassThrough();
+                SyncPassThroughMenuItem();
+            };
+
             var itemAutoStart = new ToolStripMenuItem("开机启动");
             itemAutoStart.CheckOnClick = true;
             itemAutoStart.Checked      = IsAutoStartEnabled();
@@ -63,6 +76,7 @@ namespace PinToDesk.Helpers
             menu.Items.Add(_itemShow);
             menu.Items.Add(_itemHide);
             menu.Items.Add(_itemPin);
+            menu.Items.Add(_itemPassThrough);
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(itemAutoStart);
             menu.Items.Add(new ToolStripSeparator());
@@ -108,6 +122,12 @@ namespace PinToDesk.Helpers
         public void SyncPinMenuItem()
         {
             _itemPin.Text = _getIsPinned() ? "取消置顶" : "置顶";
+        }
+
+        /// <summary>由 MainWindow 调用，同步穿透菜单文字</summary>
+        public void SyncPassThroughMenuItem()
+        {
+            _itemPassThrough.Text = _getIsPassThrough() ? "关闭鼠标穿透" : "鼠标穿透";
         }
 
         public static void SetAutoStart(bool enable)

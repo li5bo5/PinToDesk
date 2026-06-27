@@ -10,11 +10,12 @@
         Topmost="True"
         ShowInTaskbar="False"
         WindowStartupLocation="Manual"
+        PreviewMouseDoubleClick="Window_PreviewMouseDoubleClick"
         ResizeMode="CanResize">
 
     <!-- 主容器：圆角边框 + 60% 不透明白色背景 -->
     <Border x:Name="RootBorder"
-            Background="#99FFFFFF"
+            Background="#66FFFFFF"
             CornerRadius="10"
             BorderBrush="#44000000"
             BorderThickness="1">
@@ -41,22 +42,29 @@
                            Foreground="#333"/>
 
                 <!-- 右侧按钮组：置顶 | 关闭 -->
+                <!-- 右侧按钮组：置顶 | 穿透 | 关闭 -->
                 <StackPanel x:Name="TitleButtons"
                             Orientation="Horizontal"
                             HorizontalAlignment="Right"
                             Margin="0,0,4,0">
 
                     <Button x:Name="PinBtn"
-                            Content="📌"
-                            Style="{StaticResource TitleBarBtn}"
-                            Click="PinBtn_Click"
-                            ToolTip="置顶 / 取消置顶"/>
+                             Content="📍"
+                             Style="{StaticResource TitleBarBtn}"
+                             Click="PinBtn_Click"
+                             ToolTip="取消置顶"/>
+
+                    <Button x:Name="PassThroughBtn"
+                             Content="⊙"
+                             Style="{StaticResource TitleBarBtn}"
+                             Click="PassThroughBtn_Click"
+                             ToolTip="开启鼠标穿透"/>
 
                     <Button x:Name="CloseBtn"
-                            Content="✕"
-                            Style="{StaticResource TitleBarBtn}"
-                            Click="CloseBtn_Click"
-                            ToolTip="隐藏到托盘"/>
+                             Content="✕"
+                             Style="{StaticResource TitleBarBtn}"
+                             Click="CloseBtn_Click"
+                             ToolTip="隐藏到托盘"/>
                 </StackPanel>
             </Grid>
 
