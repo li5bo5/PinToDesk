@@ -44,12 +44,15 @@ namespace PinToDesk
         private WinPoint _resizeStart;
         private double   _resizeStartW, _resizeStartH;
 
-        // 置顶穿透
-        private bool _isPinned;
+        // 置顶 / 穿透（独立状态）
+        private bool _isPinned      = true;   // 默认置顶，与 XAML 中的 Topmost="True" 一致
+        private bool _isPassThrough = false;  // 鼠标穿透，独立于置顶
+        private System.Windows.Threading.DispatcherTimer? _passThroughTimer;
 
-        // 托盘引用（用于同步置顶菜单状态）
+        // 托盘引用（用于同步状态）
         private TrayHelper? _tray;
-        public bool IsPinned => _isPinned;
+        public bool IsPinned      => _isPinned;
+        public bool IsPassThrough => _isPassThrough;
         public void SetTray(TrayHelper tray) => _tray = tray;
 
         // Win32 结构与接口定义
@@ -70,6 +73,15 @@ namespace PinToDesk
             public int X;
             public int Y;
         }
+
+        private const int GWL_EXSTYLE = -20;
+        private const int WS_EX_TRANSPARENT = 0x00000020;
+
+        [DllImport("user32.dll")]
+        private static extern int GetWindowLong(IntPtr hwnd, int index);
+
+        [DllImport("user32.dll")]
+        private static extern int SetWindowLong(IntPtr hwnd, int index, int newStyle);
 
         [DllImport("user32.dll")]
         private static extern bool GetCursorPos(out POINT lpPoint);
@@ -95,8 +107,8 @@ namespace PinToDesk
             Height = Width * 1.3;
             Top    = area.Top + 20;
 
-            // 初始化占位符状态
-            Loaded += (s, e) => UpdateEmptyPlaceholder();
+            // 初始化占位符状态，初始置顶按钮高亮
+            Loaded += (s, e) => { UpdateEmptyPlaceholder(); SetTitleButtonsOpacity(1); };
         }
 
         // ══════════════════════════════════════════════
@@ -111,23 +123,7 @@ namespace PinToDesk
 
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
-            if (msg == WM_NCHITTEST && _isPinned)
-            {
-                // 将鼠标屏幕坐标转换为相对窗口坐标
-                int lp   = lParam.ToInt32();
-                int sx   = (short)(lp & 0xFFFF);
-                int sy   = (short)((lp >> 16) & 0xFFFF);
-                var ptWin = PointFromScreen(new WinPoint(sx, sy));
-
-                // TitleBar 区域（前 36px）保留交互
-                if (ptWin.Y <= 36)
-                    return IntPtr.Zero;
-
-                // 内容区穿透
-                handled = true;
-                return new IntPtr(HTTRANSPARENT);
-            }
-            else if (msg == WM_MOVING)
+            if (msg == WM_MOVING)
             {
                 // 获取当前鼠标所在的屏幕工作区（物理像素）
                 POINT mousePos;
@@ -183,14 +179,15 @@ namespace PinToDesk
         private void TitleBar_MouseEnter(object sender, WinMouse e) => SetTitleButtonsOpacity(1);
         private void TitleBar_MouseLeave(object sender, WinMouse e)
         {
-            // 置顶状态下 TitleBar 按钮保持可见
-            if (!_isPinned) SetTitleButtonsOpacity(0);
+            // 置顶或穿透状态下，标题栏按钮保持可见
+            if (!_isPinned && !_isPassThrough) SetTitleButtonsOpacity(0);
         }
 
         private void SetTitleButtonsOpacity(double opacity)
         {
-            PinBtn.Opacity   = opacity;
-            CloseBtn.Opacity = opacity;
+            PinBtn.Opacity         = opacity;
+            PassThroughBtn.Opacity = opacity;
+            CloseBtn.Opacity       = opacity;
         }
 
         // ResizeGrip 区域悬停：控制 Grip 显示
@@ -228,21 +225,107 @@ namespace PinToDesk
         private void TogglePinState()
         {
             _isPinned    = !_isPinned;
-            this.Topmost = true;
+            this.Topmost = _isPinned; // 真正控制置顶状态
 
             if (_isPinned)
             {
-                PinBtn.Content      = "📍";
-                PinBtn.ToolTip      = "已置顶，点击取消";
-                // 置顶时 TitleBar 按钮固定可见
+                PinBtn.Content = "📍";
+                PinBtn.ToolTip = "取消置顶";
                 SetTitleButtonsOpacity(1);
-                ResizeGripArea.Opacity = 0;
             }
             else
             {
                 PinBtn.Content = "📌";
-                PinBtn.ToolTip = "置顶 / 取消置顶";
-                SetTitleButtonsOpacity(0);
+                PinBtn.ToolTip = "置顶";
+                if (!_isPassThrough) SetTitleButtonsOpacity(0);
+            }
+        }
+
+        // ══════════════════════════════════════════════
+        // 鼠标穿透控制逻辑
+        // ══════════════════════════════════════════════
+        private void PassThroughBtn_Click(object sender, RoutedEventArgs e)
+        {
+            TogglePassThroughState();
+            _tray?.SyncPassThroughMenuItem();
+        }
+
+        internal void TogglePassThroughFromTray()
+        {
+            TogglePassThroughState();
+        }
+
+        private void TogglePassThroughState()
+        {
+            _isPassThrough = !_isPassThrough;
+
+            if (_isPassThrough)
+            {
+                PassThroughBtn.Content = "◉";
+                PassThroughBtn.ToolTip = "关闭鼠标穿透";
+                SetTitleButtonsOpacity(1);
+                ResizeGripArea.Opacity = 0;
+                
+                StartPassThroughTimer();
+            }
+            else
+            {
+                PassThroughBtn.Content = "⊙";
+                PassThroughBtn.ToolTip = "开启鼠标穿透";
+                if (!_isPinned) SetTitleButtonsOpacity(0);
+                
+                StopPassThroughTimer();
+                
+                // 确保退出穿透状态时移除穿透样式
+                var hwnd = new WindowInteropHelper(this).Handle;
+                int extendedStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
+                SetWindowLong(hwnd, GWL_EXSTYLE, extendedStyle & ~WS_EX_TRANSPARENT);
+            }
+        }
+
+        private void StartPassThroughTimer()
+        {
+            if (_passThroughTimer == null)
+            {
+                _passThroughTimer = new System.Windows.Threading.DispatcherTimer();
+                _passThroughTimer.Interval = TimeSpan.FromMilliseconds(50);
+                _passThroughTimer.Tick += PassThroughTimer_Tick;
+            }
+            _passThroughTimer.Start();
+        }
+
+        private void StopPassThroughTimer()
+        {
+            _passThroughTimer?.Stop();
+        }
+
+        private void PassThroughTimer_Tick(object? sender, EventArgs e)
+        {
+            if (!_isPassThrough) return;
+
+            POINT mousePos;
+            GetCursorPos(out mousePos);
+
+            bool isOverButton = IsOverInteractiveButton((short)mousePos.X, (short)mousePos.Y);
+
+            var hwnd = new WindowInteropHelper(this).Handle;
+            int extendedStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
+
+            if (isOverButton)
+            {
+                // 鼠标在按钮上，移去穿透样式以允许点击
+                if ((extendedStyle & WS_EX_TRANSPARENT) != 0)
+                {
+                    SetWindowLong(hwnd, GWL_EXSTYLE, extendedStyle & ~WS_EX_TRANSPARENT);
+                }
+            }
+            else
+            {
+                // 鼠标不在按钮上，加入穿透样式以穿透至桌面
+                if ((extendedStyle & WS_EX_TRANSPARENT) == 0)
+                {
+                    SetWindowLong(hwnd, GWL_EXSTYLE, extendedStyle | WS_EX_TRANSPARENT);
+                }
             }
         }
 
@@ -316,6 +399,32 @@ namespace PinToDesk
         // ══════════════════════════════════════════════
         // 双击空白处：显示内联输入框
         // ══════════════════════════════════════════════
+        private void Window_PreviewMouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            // 如果不在新增（内联输入）过程中，忽略
+            if (InlineInputArea.Visibility != Visibility.Visible) return;
+
+            // 检查点击的原点，如果是三个功能按钮，不进行完成操作
+            var src = e.OriginalSource as DependencyObject;
+            while (src != null)
+            {
+                if (src == PinBtn || src == PassThroughBtn || src == CloseBtn)
+                {
+                    return;
+                }
+                // 如果双击的是输入框本身，保留默认双击选词功能，不进行提交
+                if (src == InlineEditBox)
+                {
+                    return;
+                }
+                src = System.Windows.Media.VisualTreeHelper.GetParent(src);
+            }
+
+            // 在其他任意区域双击，完成并提交输入，收起输入框
+            CommitInlineInput();
+            e.Handled = true;
+        }
+
         private void TodoList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
             // 如果点击源是按钮或按钮的子元素（防止连续删除误触双击）
@@ -448,6 +557,48 @@ namespace PinToDesk
             var oldIdx = _items.IndexOf(_dragItem);
             var newIdx = _items.IndexOf(target);
             if (oldIdx >= 0 && newIdx >= 0) { _items.Move(oldIdx, newIdx); _storage.SaveTodos(_items); }
+        }
+
+        // ══════════════════════════════════════════════
+        // 按钮物理像素命中测试
+        // ══════════════════════════════════════════════
+        private bool IsOverInteractiveButton(short screenX, short screenY)
+        {
+            try
+            {
+                return IsScreenPointInElement(PinBtn, screenX, screenY) ||
+                       IsScreenPointInElement(PassThroughBtn, screenX, screenY) ||
+                       IsScreenPointInElement(CloseBtn, screenX, screenY);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private bool IsScreenPointInElement(System.Windows.UIElement element, short screenX, short screenY)
+        {
+            if (element == null || !element.IsVisible || element.Opacity == 0)
+                return false;
+
+            try
+            {
+                // PointToScreen 返回的已经是屏幕物理像素 (Physical Pixels)
+                var ptScreen = element.PointToScreen(new System.Windows.Point(0, 0));
+                var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(element);
+
+                double left = ptScreen.X; // 已经是物理像素，不再乘以 DpiScaleX
+                double top = ptScreen.Y;  // 已经是物理像素，不再乘以 DpiScaleY
+                double right = left + element.RenderSize.Width * dpi.DpiScaleX;   // RenderSize 是逻辑像素，需乘 DPI
+                double bottom = top + element.RenderSize.Height * dpi.DpiScaleY; // RenderSize 是逻辑像素，需乘 DPI
+
+                return screenX >= left && screenX <= right &&
+                       screenY >= top && screenY <= bottom;
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 }
