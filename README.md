@@ -53,7 +53,7 @@ https://github.com/user-attachments/assets/6403c61e-899e-4287-91b0-b3e3110954c9
 - **操作系统**：Windows 10 / 11（64 位）
 
 | 版本 | 运行依赖 |
-|------|---------|---------|
+|------|---------|
 | **SelfContained**（自包含版） | 无，下载即用 |
 | **FrameworkDependent**（精简版） | 需预装 [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) |
 
