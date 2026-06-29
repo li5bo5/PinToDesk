@@ -1,7 +1,10 @@
 using System;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -45,7 +48,7 @@ namespace PinToDesk
         private double   _resizeStartW, _resizeStartH;
 
         // 置顶 / 穿透（独立状态）
-        private bool _isPinned      = true;   // 默认置顶，与 XAML 中的 Topmost="True" 一致
+        private bool _isPinned      = false;   // 默认不置顶
         private bool _isPassThrough = false;  // 鼠标穿透，独立于置顶
         private System.Windows.Threading.DispatcherTimer? _passThroughTimer;
 
@@ -93,6 +96,9 @@ namespace PinToDesk
         {
             InitializeComponent();
 
+            // 确保窗口句柄创建，以便后续初始化设置和 Win32 钩子正常运行
+            new WindowInteropHelper(this).EnsureHandle();
+
             _storage = new MarkdownStorage();
             foreach (var item in _storage.LoadTodos())
                 _items.Add(item);
@@ -107,8 +113,17 @@ namespace PinToDesk
             Height = Width * 1.3;
             Top    = area.Top + 20;
 
-            // 初始化占位符状态，初始置顶按钮高亮
-            Loaded += (s, e) => { UpdateEmptyPlaceholder(); SetTitleButtonsOpacity(1); };
+            // 载入并应用保存的设置
+            LoadSettings();
+
+            // 初始化占位符状态
+            UpdateEmptyPlaceholder();
+
+            // 根据置顶或穿透状态决定标题栏按钮初始透明度
+            Loaded += (s, e) => { 
+                UpdateEmptyPlaceholder(); 
+                SetTitleButtonsOpacity((_isPinned || _isPassThrough) ? 1 : 0); 
+            };
         }
 
         // ══════════════════════════════════════════════
@@ -119,6 +134,14 @@ namespace PinToDesk
             base.OnSourceInitialized(e);
             var hwndSource = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
             hwndSource?.AddHook(WndProc);
+
+            // 如果初始加载的设置中启用了鼠标穿透，立即应用穿透样式
+            if (_isPassThrough)
+            {
+                var hwnd = new WindowInteropHelper(this).Handle;
+                int extendedStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
+                SetWindowLong(hwnd, GWL_EXSTYLE, extendedStyle | WS_EX_TRANSPARENT);
+            }
         }
 
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
@@ -231,6 +254,7 @@ namespace PinToDesk
                 PinBtn.ToolTip = "置顶";
                 if (!_isPassThrough) SetTitleButtonsOpacity(0);
             }
+            SaveSettings();
         }
 
         // ══════════════════════════════════════════════
@@ -273,6 +297,7 @@ namespace PinToDesk
                 int extendedStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
                 SetWindowLong(hwnd, GWL_EXSTYLE, extendedStyle & ~WS_EX_TRANSPARENT);
             }
+            SaveSettings();
         }
 
         private void StartPassThroughTimer()
@@ -590,6 +615,87 @@ namespace PinToDesk
             catch
             {
                 return false;
+            }
+        }
+
+        private void LoadSettings()
+        {
+            try
+            {
+                var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                var folder = Path.Combine(appData, "PinToDesk");
+                var settingsPath = Path.Combine(folder, "settings.json");
+                if (File.Exists(settingsPath))
+                {
+                    var json = File.ReadAllText(settingsPath, Encoding.UTF8);
+                    var settings = JsonSerializer.Deserialize<AppSettings>(json);
+                    if (settings != null)
+                    {
+                        _isPinned = settings.IsPinned;
+                        _isPassThrough = settings.IsPassThrough;
+                    }
+                }
+                else
+                {
+                    _isPinned = false;
+                    _isPassThrough = false;
+                }
+            }
+            catch
+            {
+                _isPinned = false;
+                _isPassThrough = false;
+            }
+
+            // 应用置顶状态
+            this.Topmost = _isPinned;
+            if (_isPinned)
+            {
+                PinBtn.Content = "📍";
+                PinBtn.ToolTip = "取消置顶";
+            }
+            else
+            {
+                PinBtn.Content = "📌";
+                PinBtn.ToolTip = "置顶";
+            }
+
+            // 应用穿透状态
+            if (_isPassThrough)
+            {
+                PassThroughBtn.Content = "◉";
+                PassThroughBtn.ToolTip = "关闭鼠标穿透";
+                StartPassThroughTimer();
+            }
+            else
+            {
+                PassThroughBtn.Content = "⊙";
+                PassThroughBtn.ToolTip = "开启鼠标穿透";
+                StopPassThroughTimer();
+            }
+        }
+
+        private void SaveSettings()
+        {
+            try
+            {
+                var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                var folder = Path.Combine(appData, "PinToDesk");
+                if (!Directory.Exists(folder))
+                    Directory.CreateDirectory(folder);
+                var settingsPath = Path.Combine(folder, "settings.json");
+
+                var settings = new AppSettings
+                {
+                    IsPinned = _isPinned,
+                    IsPassThrough = _isPassThrough
+                };
+                var json = JsonSerializer.Serialize(settings);
+                File.WriteAllText(settingsPath, json, Encoding.UTF8);
+            }
+            catch
+            {
+                // 忽略保存错误
             }
         }
     }

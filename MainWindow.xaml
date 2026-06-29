@@ -7,7 +7,7 @@
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
-        Topmost="True"
+        Topmost="False"
         ShowInTaskbar="False"
         WindowStartupLocation="Manual"
         PreviewMouseDoubleClick="Window_PreviewMouseDoubleClick"
