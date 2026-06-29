@@ -19,12 +19,11 @@
 - **系统托盘**：最小化到托盘后台运行，支持显示/隐藏、置顶切换、开机启动、退出
 
 ---
-## 界面
 
-<img width="350" height="455" alt="3" src="https://github.com/user-attachments/assets/f07fda63-4c76-4bcf-a27f-0ce655f8d90c" />
-<img width="350" height="455" alt="0" src="https://github.com/user-attachments/assets/1f71f04d-5c78-4038-9eb5-ab2e784367e7" />
-<img width="350" height="455" alt="1" src="https://github.com/user-attachments/assets/7db0b840-6dad-452e-bda8-cf4a149b5f9f" />
-
+## 开发备忘
+- 运行软件之后，就进入后台进程
+- 运行软件之后，默认不穿透，不置顶
+- 记录设置选项（置顶、穿透、开机启动），再次启动软件之后，加载上一次的设置
 
 ---
 ## 操作演示
