@@ -99,7 +99,7 @@ namespace PinToDesk.Helpers
             int targetWidth  = smallWidth <= 16 ? 32 : (smallWidth <= 24 ? 32 : 48);
             int targetHeight = smallHeight <= 16 ? 32 : (smallHeight <= 24 ? 32 : 48);
             var trayIcon   = iconStream != null ? new Icon(iconStream, new System.Drawing.Size(targetWidth, targetHeight)) : SystemIcons.Application;
-            var version    = typeof(TrayHelper).Assembly.GetName().Version?.ToString(3) ?? "1.0.3";
+            var version    = typeof(TrayHelper).Assembly.GetName().Version?.ToString(3) ?? "1.0.4";
 
             _icon = new NotifyIcon
             {
