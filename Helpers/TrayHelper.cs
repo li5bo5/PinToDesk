@@ -19,6 +19,7 @@ namespace PinToDesk.Helpers
         private readonly ToolStripMenuItem _itemHide;        // 「隐藏」— 窗口显示时可见
         private readonly ToolStripMenuItem _itemPin;         // 「置顶/取消置顶」
         private readonly ToolStripMenuItem _itemPassThrough; // 「鼠标穿透/关闭穿透」
+        private readonly System.Windows.Forms.Timer _clickTimer;
 
         public TrayHelper(Window window, System.Windows.Application app,
                           Action togglePin,          Func<bool> getIsPinned,
@@ -52,6 +53,11 @@ namespace PinToDesk.Helpers
             _itemPin = new ToolStripMenuItem("置顶");
             _itemPin.Click += (s, e) =>
             {
+                _window.Dispatcher.Invoke(() =>
+                {
+                    _window.Show();
+                    _window.Activate();
+                });
                 _togglePin();
                 SyncPinMenuItem();
             };
@@ -103,30 +109,44 @@ namespace PinToDesk.Helpers
                 ContextMenuStrip = menu
             };
 
-            // 鼠标左键单击：显示并激活窗口
+            // 初始化单击定时器，200ms 内无第二次点击则触发显示（前台）
+            _clickTimer = new System.Windows.Forms.Timer();
+            _clickTimer.Interval = 200;
+            _clickTimer.Tick += (s, e) =>
+            {
+                _clickTimer.Stop();
+                _window.Dispatcher.Invoke(() =>
+                {
+                    _window.Show();
+                    _window.Activate();
+                });
+            };
+
+            // 鼠标左键单击：启动延迟判定以触发显示
             _icon.MouseClick += (s, e) =>
             {
                 if (e.Button == System.Windows.Forms.MouseButtons.Left)
                 {
-                    _window.Dispatcher.Invoke(() =>
-                    {
-                        _window.Show();
-                        _window.Activate();
-                    });
+                    _clickTimer.Start();
                 }
             };
 
-            // 鼠标左键双击：隐藏窗口
+            // 鼠标左键双击：拦截单击行为并隐藏窗口（后台）
             _icon.MouseDoubleClick += (s, e) =>
             {
                 if (e.Button == System.Windows.Forms.MouseButtons.Left)
                 {
+                    _clickTimer.Stop();
                     _window.Dispatcher.Invoke(() =>
                     {
                         _window.Hide();
                     });
                 }
             };
+
+            // 启动时同步一次置顶与穿透的菜单文字状态
+            SyncPinMenuItem();
+            SyncPassThroughMenuItem();
         }
 
         /// <summary>根据窗口可见状态，切换「显示」/「隐藏」菜单项的可见性</summary>
@@ -167,6 +187,10 @@ namespace PinToDesk.Helpers
             return reg?.GetValue("PinToDesk") != null;
         }
 
-        public void Dispose() => _icon.Dispose();
+        public void Dispose()
+        {
+            _clickTimer.Dispose();
+            _icon.Dispose();
+        }
     }
 }
