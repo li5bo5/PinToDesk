@@ -3,6 +3,11 @@
 一个极致轻量的 Windows 桌面待办事项工具。
 半透明磨砂风格，常驻系统托盘，悬浮于桌面之上，始终清晰可见。
 
+## 📥 下载地址
+
+- **GitHub Releases**：[点击下载](https://github.com/li5bo5/PinToDesk/releases)
+- **蓝奏云下载**：[蓝奏云传送门](https://li5bo5.lanzouu.com/b00egr423i) (密码: `ptd`)
+
 ---
 
 ## ✨ 功能特点
