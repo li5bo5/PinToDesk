@@ -1,5 +1,11 @@
 # PinToDesk - Windows桌面待办事项工具
 
+> [!IMPORTANT]
+> **📢 项目迁移与升级通知**
+> 
+> 本项目（PinToDesk）的功能已经合并并继承到我的全新项目 **[WinKit](https://github.com/li5bo5/WinKit)** 中。
+> [WinKit](https://github.com/li5bo5/WinKit) 在完整继承 PinToDesk 桌面待办功能的基础上，新增了**剪贴板管理**等更多实用工具。后续的更新与维护将在 [WinKit](https://github.com/li5bo5/WinKit) 中进行，建议您前往体验并使用新版本！
+
 一个极致轻量的 Windows 桌面待办事项工具。
 半透明磨砂风格，常驻系统托盘，悬浮于桌面之上，始终清晰可见。
 
