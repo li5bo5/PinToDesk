@@ -1,29 +1,43 @@
-﻿# .NET build output
-bin/
-obj/
+﻿# 本地数据、用户配置与日志
+/Data/
+settings.json
+todos.md
+*.jsonl
+*.bak
+*.tmp
+.session.diag
+*.log
+
+# .NET build output
+[Bb]in/
+[Oo]bj/
 
 # All publish output directories (Publish/, Publish1.0/, Publish2.0/ etc.)
 Publish*/
+Release/
+*.zip
+*_wpftmp.*
 
 # Debug symbols
 *.pdb
 
 # NuGet packages (prevent local nupkg accumulation)
 *.nupkg
+*.snupkg
+**/packages/
+project.lock.json
+project.assets.json
 
-# User-specific files
+# User-specific files & IDE
 *.user
 *.suo
 .vs/
-
-# IDE
+.vscode/
 .idea/
+.codeartsdoer/
 *.DotSettings.user
 
 # OS
 Thumbs.db
 desktop.ini
 .DS_Store
-
-# Logs
-*.log

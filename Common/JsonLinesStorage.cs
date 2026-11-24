@@ -1,0 +1,300 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using System.Text.Unicode;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace PinToDesk.Common
+{
+    /// <summary>
+    /// 通用 JSON Lines (.jsonl) 存储引擎，支持明文逐行容错读写、原子替换与异步后台防抖刷盘
+    /// </summary>
+    /// <typeparam name="T">存储的数据实体类型</typeparam>
+    public class JsonLinesStorage<T> : IDisposable where T : class
+    {
+        private readonly string _filePath;
+        private readonly string _tmpFilePath;
+        private readonly object _fileLock = new();
+
+        // 异步队列与防抖支持
+        private readonly object _queueLock = new();
+        private List<T>? _pendingItems;
+        private CancellationTokenSource? _debounceCts;
+        private bool _isDisposed;
+        private bool _faultNotified;
+
+        /// <summary>
+        /// 读失败熔断状态：当文件存在但读取异常时置为 true，拒绝任何空数据覆盖写盘
+        /// </summary>
+        public bool HasReadFault { get; private set; }
+
+        private static readonly JsonSerializerOptions JsonOptions = new()
+        {
+            Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
+            WriteIndented = false
+        };
+
+        /// <summary>
+        /// 初始化 JSON Lines 存储引擎
+        /// </summary>
+        /// <param name="filePath">目标 .jsonl 文件绝对路径</param>
+        public JsonLinesStorage(string filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath))
+                throw new ArgumentNullException(nameof(filePath));
+
+            _filePath = filePath;
+            _tmpFilePath = filePath + ".tmp";
+
+            AppPaths.EnsureDirectories();
+        }
+
+        /// <summary>
+        /// 从文件加载数据列表；采用逐行容错机制，损坏行自动跳过，不影响有效行
+        /// </summary>
+        /// <returns>反序列化后的实体列表</returns>
+        public List<T> Load()
+        {
+            lock (_fileLock)
+            {
+                if (!File.Exists(_filePath))
+                {
+                    try
+                    {
+                        File.WriteAllText(_filePath, string.Empty, Encoding.UTF8);
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"JsonLinesStorage: 创建空白文件 {_filePath} 失败 ({ex.Message})");
+                    }
+                    return new List<T>();
+                }
+
+                try
+                {
+                    var (items, corruptedCount) = ReadLinesFromFile(_filePath);
+                    if (corruptedCount > 0)
+                    {
+                        if (items.Count == 0)
+                        {
+                            // 文件非空但全部行损坏：进入保护熔断态，严禁空数据覆写
+                            HasReadFault = true;
+                            NotifyReadFault("格式全部损坏");
+                            return new List<T>();
+                        }
+
+                        // 部分行损坏：保留单份备份，防止后续保存抹掉可抢救的原始数据
+                        try
+                        {
+                            File.Copy(_filePath, _filePath + ".corrupt.bak", overwrite: true);
+                        }
+                        catch { }
+                    }
+                    return items;
+                }
+                catch (Exception ex)
+                {
+                    HasReadFault = true;
+                    System.Diagnostics.Debug.WriteLine($"JsonLinesStorage: 读取主文件 {_filePath} 异常 ({ex.Message})");
+                    NotifyReadFault("可能被占用");
+                    return new List<T>();
+                }
+            }
+        }
+
+        private void NotifyReadFault(string reason)
+        {
+            if (_faultNotified) return;
+            _faultNotified = true;
+            string fileName = Path.GetFileName(_filePath);
+            System.Windows.Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                System.Windows.MessageBox.Show(
+                    $"数据文件 ({fileName}) 读取遇到异常（{reason}），已开启保护模式：本次会话不会自动保存覆盖，请检查文件并适时重启软件。",
+                    "PinToDesk 数据保护",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Warning);
+            }));
+        }
+
+        /// <summary>
+        /// 同步原子持久化保存数据（写入 .tmp 临时文件 + 原子替换覆盖）
+        /// </summary>
+        /// <param name="items">待保存的数据列表</param>
+        public void Save(IEnumerable<T> items)
+        {
+            if (_isDisposed || items == null || HasReadFault) return;
+            var snapshot = items.Where(i => i != null).ToList();
+
+            lock (_fileLock)
+            {
+                try
+                {
+                    var sb = new StringBuilder();
+                    foreach (var item in snapshot)
+                    {
+                        var line = JsonSerializer.Serialize(item, JsonOptions);
+                        sb.AppendLine(line);
+                    }
+
+                    // 1. 写入同目录下的 .tmp 临时文件
+                    File.WriteAllText(_tmpFilePath, sb.ToString(), Encoding.UTF8);
+
+                    // 2. 原子替换覆盖主文件
+                    File.Move(_tmpFilePath, _filePath, overwrite: true);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"JsonLinesStorage: 同步原子写入 {_filePath} 失败 ({ex.Message})");
+                    throw;
+                }
+                finally
+                {
+                    // 3. 清理残留临时文件
+                    try
+                    {
+                        if (File.Exists(_tmpFilePath))
+                        {
+                            File.Delete(_tmpFilePath);
+                        }
+                    }
+                    catch
+                    {
+                        // 忽略临时文件清理异常
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 队列防抖保存（默认 300ms 防抖合并，适合高频连续修改）
+        /// </summary>
+        public void QueueSave(IEnumerable<T> items, int debounceMs = 300)
+        {
+            if (_isDisposed || items == null || HasReadFault) return;
+
+            var snapshot = items.Where(i => i != null).ToList();
+
+            lock (_queueLock)
+            {
+                _pendingItems = snapshot;
+                _debounceCts?.Cancel();
+                _debounceCts?.Dispose();
+                _debounceCts = new CancellationTokenSource();
+                var token = _debounceCts.Token;
+
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await Task.Delay(debounceMs, token).ConfigureAwait(false);
+                        List<T>? toWrite;
+                        lock (_queueLock)
+                        {
+                            // 在锁内先检查取消与释放状态，避免旧防抖任务偷走新入队的 _pendingItems
+                            if (token.IsCancellationRequested || _isDisposed) return;
+                            toWrite = _pendingItems;
+                            _pendingItems = null;
+                        }
+
+                        if (toWrite != null)
+                        {
+                            Save(toWrite);
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // 正常防抖取消
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"JsonLinesStorage: 防抖队列写入失败 ({ex.Message})");
+                    }
+                }, token);
+            }
+        }
+
+        /// <summary>
+        /// 同步立即刷盘
+        /// </summary>
+        public void Flush()
+        {
+            List<T>? toWrite = null;
+            lock (_queueLock)
+            {
+                _debounceCts?.Cancel();
+                toWrite = _pendingItems;
+                _pendingItems = null;
+            }
+
+            if (toWrite != null)
+            {
+                Save(toWrite);
+            }
+        }
+
+        /// <summary>
+        /// 内部辅助：从指定文件逐行反序列化 JSON 实体，自动跳过损坏行并统计损坏行数
+        /// </summary>
+        private static (List<T> Items, int CorruptedCount) ReadLinesFromFile(string path)
+        {
+            var list = new List<T>();
+            int corruptedCount = 0;
+            var lines = File.ReadAllLines(path, Encoding.UTF8);
+
+            foreach (var line in lines)
+            {
+                var trimmed = line.Trim();
+                if (string.IsNullOrWhiteSpace(trimmed)) continue;
+
+                try
+                {
+                    var item = JsonSerializer.Deserialize<T>(trimmed, JsonOptions);
+                    if (item != null)
+                    {
+                        list.Add(item);
+                    }
+                    else
+                    {
+                        corruptedCount++;
+                    }
+                }
+                catch (JsonException ex)
+                {
+                    corruptedCount++;
+                    System.Diagnostics.Debug.WriteLine($"JsonLinesStorage: 跳过损坏行 ({ex.Message}) -> {trimmed}");
+                }
+            }
+
+            return (list, corruptedCount);
+        }
+
+        public void Dispose()
+        {
+            if (_isDisposed) return;
+
+            try
+            {
+                // 必须在置位 _isDisposed 之前完成刷盘，避免 Save() 短路跳过
+                Flush();
+            }
+            catch
+            {
+                // 忽略释放异常
+            }
+
+            lock (_queueLock)
+            {
+                _isDisposed = true;
+                _debounceCts?.Cancel();
+                _debounceCts?.Dispose();
+                _debounceCts = null;
+            }
+        }
+    }
+}
